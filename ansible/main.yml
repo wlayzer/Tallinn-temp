@@ -1,0 +1,66 @@
+- hosts: all
+  remote_user: kristjan
+  become: true
+
+
+  vars:
+   pip_install_packages:
+    - name: docker
+   docker_install_compose: true
+
+  roles:
+   - geerlingguy.docker
+ 
+  tasks:
+   - name: Install Prometheus
+     apt:
+      name: prometheus
+      update_cache: yes
+      state: present
+    
+   - name: Install grafana dependencies
+     apt:
+       pkg:
+       - apt-transport-https
+       - adduser
+       - ca-certificates
+       - libfontconfig
+       - gnupg2
+
+   - name: add grafana repo key
+     ansible.builtin.apt_key:
+      url: https://packages.grafana.com/gpg.key
+      state: present
+
+   - name: Add grafana repo
+     ansible.builtin.apt_repository:
+      repo: deb https://packages.grafana.com/oss/deb stable main
+      state: present
+
+   - name: Install Grafana
+     apt: 
+      name: grafana
+      update_cache: yes
+      state: present
+      
+   - name: create prometheus datasource
+     community.grafana.grafana_datasource:
+       name: Prometheus 
+       grafana_url: http://tallinn-temp.westeurope.cloudapp.azure.com:3000
+       grafana_user: admin
+       grafana_password: admin
+       org_id: "1"
+       ds_type: prometheus
+       ds_url: http://tallinn-temp.westeurope.cloudapp.azure.com:9090
+       access: proxy
+    - name: Add prometheus configuration file
+      ansible.builtin.copy:
+        src: files/prometheus.yml
+        dest: /etc/prometheus/prometheus.yml
+        owner: root
+        group: root
+        mode: '644'
+    - name: restart prometheus
+      ansible.builtin.systemd:
+        state: restarted
+        name: prometheus
